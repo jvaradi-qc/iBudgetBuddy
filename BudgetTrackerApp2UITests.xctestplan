@@ -1,0 +1,25 @@
+{
+  "configurations" : [
+    {
+      "id" : "09126C4C-7EF1-4688-9D05-5F8950A03693",
+      "name" : "Test Scheme Action",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "performanceAntipatternCheckerEnabled" : true
+  },
+  "testTargets" : [
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:BudgetTrackerApp2.xcodeproj",
+        "identifier" : "27DE1A572F180C6500971434",
+        "name" : "BudgetTrackerApp2UITests"
+      }
+    }
+  ],
+  "version" : 1
+}
