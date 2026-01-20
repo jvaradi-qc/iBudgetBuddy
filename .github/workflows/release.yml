@@ -1,0 +1,42 @@
+name: iOS Release Pipeline (Fastlane)
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  ios-ci:
+    runs-on: macos-latest
+
+    steps:
+    - name: Checkout source
+      uses: actions/checkout@v4
+
+    - name: Select Xcode 26.2
+      run: sudo xcode-select -s /Applications/Xcode_26.2.app
+
+    - name: Install Ruby dependencies
+      run: |
+        gem install bundler
+        bundle install || true
+
+    - name: Install Fastlane
+      run: sudo gem install fastlane
+
+    - name: Run Fastlane lane
+      env:
+        APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+        APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+        APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      run: |
+        if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+          echo "Running release lane"
+          fastlane release
+        else
+          echo "Running beta lane"
+          fastlane beta
+        fi
+
