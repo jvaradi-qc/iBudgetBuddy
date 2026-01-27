@@ -21,6 +21,10 @@ final class ContentViewModel: ObservableObject {
     // Recurring rules (for editing only)
     @Published var recurring: [RecurringTransaction] = []
 
+    // MARK: - Selected Month/Year (NEW)
+    @Published var selectedMonth: Int
+    @Published var selectedYear: Int
+
     // MARK: - Summary
     var totalIncome: Double {
         transactions
@@ -42,6 +46,11 @@ final class ContentViewModel: ObservableObject {
 
     // MARK: - Init
     init() {
+        let now = Date()
+        let calendar = Calendar.current
+        self.selectedMonth = calendar.component(.month, from: now)
+        self.selectedYear = calendar.component(.year, from: now)
+
         loadBudgets()
     }
 
@@ -65,16 +74,14 @@ final class ContentViewModel: ObservableObject {
 
     // MARK: - Load Transactions + Recurring
     func loadData(for budgetId: UUID) {
-        // 1. Materialize recurring instances for the current month
+        // 1. Materialize recurring instances for the selected month
         Database.shared.materializeRecurringForCurrentMonth(budgetId: budgetId)
 
-        // 2. Determine current month/year
-        let now = Date()
         let calendar = Calendar.current
-        let month = calendar.component(.month, from: now)
-        let year = calendar.component(.year, from: now)
+        let month = selectedMonth
+        let year = selectedYear
 
-        // 3. Load REAL transactions (now includes materialized recurring)
+        // 2. Load REAL transactions (now includes materialized recurring)
         transactions = Database.shared.fetchTransactions(budgetId: budgetId)
             .filter { tx in
                 let comps = calendar.dateComponents([.year, .month], from: tx.date)
@@ -82,7 +89,7 @@ final class ContentViewModel: ObservableObject {
             }
             .sorted { $0.date < $1.date }
 
-        // 4. Load recurring rules AFTER materialization
+        // 3. Load recurring rules AFTER materialization
         recurring = Database.shared.fetchRecurring(budgetId: budgetId)
     }
 
@@ -131,4 +138,3 @@ final class ContentViewModel: ObservableObject {
         loadData(for: budgetId)
     }
 }
-

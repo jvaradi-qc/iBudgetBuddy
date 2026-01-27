@@ -40,7 +40,7 @@ struct ContentView: View {
                                 }
                             }
 
-                            // MARK: - Transactions (merged)
+                            // MARK: - Transactions
                             Section("Transactions") {
                                 ForEach(viewModel.transactions) { tx in
                                     TransactionRow(transaction: tx)
@@ -53,7 +53,6 @@ struct ContentView: View {
                                                 editingTransaction = tx
                                             }
                                         }
-
                                 }
                                 .onDelete(perform: viewModel.deleteTransaction)
                             }
@@ -64,7 +63,7 @@ struct ContentView: View {
                     }
                 }
 
-                // MARK: - Floating Bottom-Right Gear Button
+                // MARK: - Floating Gear Button
                 VStack {
                     Spacer()
                     HStack {
@@ -87,7 +86,6 @@ struct ContentView: View {
             }
             .navigationTitle("iBudgetBuddy")
             .toolbar {
-
                 // MARK: - Budget Switcher
                 ToolbarItem(placement: .navigationBarLeading) {
                     Menu {
@@ -104,33 +102,61 @@ struct ContentView: View {
                     }
                 }
 
-                // MARK: - Add Buttons + Reports Button
-                ToolbarItemGroup(placement: .navigationBarTrailing) {
+                // MARK: - Calendar Picker
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Menu {
+                        Section("Month") {
+                            ForEach(1...12, id: \.self) { m in
+                                Button(monthName(m)) {
+                                    viewModel.selectedMonth = m
+                                    if let id = viewModel.selectedBudget?.id {
+                                        viewModel.loadData(for: id)
+                                    }
+                                }
+                            }
+                        }
 
-                    // Reports Button
+                        Section("Year") {
+                            ForEach(2024...2030, id: \.self) { y in
+                                Button("\(y)") {
+                                    viewModel.selectedYear = y
+                                    if let id = viewModel.selectedBudget?.id {
+                                        viewModel.loadData(for: id)
+                                    }
+                                }
+                            }
+                        }
+                    } label: {
+                        Image(systemName: "calendar")
+                    }
+                }
+
+                // MARK: - Reports Button
+                ToolbarItem(placement: .navigationBarTrailing) {
                     if let budget = viewModel.selectedBudget {
                         NavigationLink(destination: ReportsView(budgetId: budget.id)) {
                             Image(systemName: "chart.pie.fill")
                         }
                     }
+                }
 
-                    // Add Transaction
-                    Button {
-                        showingAddTransaction = true
-                    } label: {
-                        Image(systemName: "plus.circle")
-                    }
+                // MARK: - Add Menu
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Menu {
+                        Button("Add Transaction") {
+                            showingAddTransaction = true
+                        }
 
-                    // Add Recurring
-                    Button {
-                        showingAddRecurring = true
+                        Button("Add Recurring") {
+                            showingAddRecurring = true
+                        }
                     } label: {
-                        Image(systemName: "repeat.circle")
+                        Image(systemName: "plus")
                     }
                 }
             }
 
-            // MARK: - Edit Transaction Sheet
+            // MARK: - Sheets
             .sheet(item: $editingTransaction) { tx in
                 TransactionEditWrapperView(
                     transaction: tx,
@@ -144,7 +170,6 @@ struct ContentView: View {
                 )
             }
 
-            // MARK: - Edit Recurring Sheet
             .sheet(item: $editingRecurring) { item in
                 RecurringEditWrapperView(
                     recurring: item,
@@ -158,7 +183,6 @@ struct ContentView: View {
                 )
             }
 
-            // MARK: - Add Transaction Sheet
             .sheet(isPresented: $showingAddTransaction) {
                 AddTransactionView { date, description, amount, isIncome, categoryId in
                     guard let budgetId = viewModel.selectedBudget?.id else { return }
@@ -171,16 +195,14 @@ struct ContentView: View {
                         amount: amount,
                         isIncome: isIncome,
                         categoryId: categoryId,
-                        isRecurringInstance: false,   // NEW
-                        recurringRuleId: nil          // NEW
+                        isRecurringInstance: false,
+                        recurringRuleId: nil
                     )
 
                     viewModel.addTransaction(transaction)
                 }
             }
 
-
-            // MARK: - Add Recurring Sheet
             .sheet(isPresented: $showingAddRecurring) {
                 if let budgetId = viewModel.selectedBudget?.id {
                     AddRecurringView(budgetId: budgetId) { recurring in
@@ -191,14 +213,13 @@ struct ContentView: View {
                 }
             }
 
-            // MARK: - Settings Sheet
             .sheet(isPresented: $showingSettings) {
                 SettingsView()
             }
         }
     }
 
-    // MARK: - Currency Helper
+    // MARK: - Currency Formatter
     private func currency(_ value: Double) -> String {
         let formatter = NumberFormatter()
         formatter.numberStyle = .currency
@@ -206,4 +227,12 @@ struct ContentView: View {
         formatter.maximumFractionDigits = 2
         return formatter.string(from: NSNumber(value: value)) ?? "$0.00"
     }
+
+    // MARK: - Month Name Helper
+    private func monthName(_ month: Int) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US")
+        return formatter.monthSymbols[month - 1]
+    }
 }
+
