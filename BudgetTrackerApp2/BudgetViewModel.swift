@@ -25,14 +25,11 @@ final class BudgetViewModel: ObservableObject {
     init(database: DatabaseProtocol = Database.shared) {
         self.db = database
 
-
         loadBudgets()
-
 
         if budgets.isEmpty {
             let defaultBudget = Budget(id: UUID(), name: "My Budget")
             db.insertBudget(defaultBudget)
-
             loadBudgets()
         }
 
@@ -84,8 +81,7 @@ final class BudgetViewModel: ObservableObject {
     // MARK: - Budgets
 
     func loadBudgets() {
-        let fetched = db.fetchBudgets()
-        budgets = fetched
+        budgets = db.fetchBudgets()
     }
 
     func addBudget(_ budget: Budget) {
@@ -137,7 +133,7 @@ final class BudgetViewModel: ObservableObject {
         transactions = db.fetchTransactions(budgetId: id)
     }
 
-    func addTransaction(date: Date, description: String, amount: Double, isIncome: Bool) {
+    func addTransaction(date: Date, description: String, amount: Double, isIncome: Bool, categoryId: UUID?) {
         guard let id = selectedBudgetId else { return }
 
         let signedAmount = isIncome ? abs(amount) : -abs(amount)
@@ -148,7 +144,10 @@ final class BudgetViewModel: ObservableObject {
             date: date,
             description: description,
             amount: signedAmount,
-            isIncome: isIncome
+            isIncome: isIncome,
+            categoryId: categoryId,
+            isRecurringInstance: false,   // NEW
+            recurringRuleId: nil          // NEW
         )
 
         db.insert(transaction: tx)
@@ -226,7 +225,10 @@ final class BudgetViewModel: ObservableObject {
                 date: now,
                 description: item.description,
                 amount: signedAmount,
-                isIncome: item.isIncome
+                isIncome: item.isIncome,
+                categoryId: item.categoryId,
+                isRecurringInstance: true,      // NEW
+                recurringRuleId: item.id        // NEW
             )
 
             db.insert(transaction: tx)
@@ -238,5 +240,6 @@ final class BudgetViewModel: ObservableObject {
         loadTransactions()
         loadRecurring()
     }
+
 }
 

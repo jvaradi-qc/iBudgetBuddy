@@ -1,36 +1,76 @@
 import SwiftUI
 
 struct ContentView: View {
-    @StateObject private var vm = BudgetViewModel()
+    @StateObject private var viewModel = ContentViewModel()
 
-    @State private var showAddTransaction = false
-    @State private var showAddRecurring = false
-    @State private var showAddBudget = false
-    @State private var showSettings = false
+    @State private var showingAddTransaction = false
+    @State private var showingAddRecurring = false
+    @State private var showingSettings = false
 
-    @Environment(\.uiTestMode) private var uiTestMode
+    @State private var editingTransaction: Transaction? = nil
+    @State private var editingRecurring: RecurringTransaction? = nil
 
     var body: some View {
         NavigationView {
             ZStack {
-                VStack(spacing: 0) {
-                    budgetPickerSection
-                    summarySection
-                    Divider()
+                VStack {
+                    if let _ = viewModel.selectedBudget {
+                        List {
+                            // MARK: - Summary
+                            Section("Summary") {
+                                HStack {
+                                    Text("Income")
+                                    Spacer()
+                                    Text(currency(viewModel.totalIncome))
+                                        .foregroundColor(.green)
+                                }
 
-                    if vm.transactions.isEmpty && vm.recurring.isEmpty {
-                        emptyState
+                                HStack {
+                                    Text("Expenses")
+                                    Spacer()
+                                    Text(currency(viewModel.totalExpenses))
+                                        .foregroundColor(.red)
+                                }
+
+                                HStack {
+                                    Text("Net")
+                                    Spacer()
+                                    Text(currency(viewModel.netAmount))
+                                        .foregroundColor(viewModel.netAmount >= 0 ? .green : .red)
+                                }
+                            }
+
+                            // MARK: - Transactions (merged)
+                            Section("Transactions") {
+                                ForEach(viewModel.transactions) { tx in
+                                    TransactionRow(transaction: tx)
+                                        .onTapGesture {
+                                            if tx.isRecurringInstance,
+                                               let ruleId = tx.recurringRuleId,
+                                               let rule = viewModel.recurring.first(where: { $0.id == ruleId }) {
+                                                editingRecurring = rule
+                                            } else {
+                                                editingTransaction = tx
+                                            }
+                                        }
+
+                                }
+                                .onDelete(perform: viewModel.deleteTransaction)
+                            }
+                        }
                     } else {
-                        transactionAndRecurringList
+                        Text("Please create or select a budget.")
+                            .foregroundColor(.secondary)
                     }
                 }
 
+                // MARK: - Floating Bottom-Right Gear Button
                 VStack {
                     Spacer()
                     HStack {
                         Spacer()
                         Button {
-                            showSettings = true
+                            showingSettings = true
                         } label: {
                             Image(systemName: "gearshape.fill")
                                 .font(.system(size: 22))
@@ -47,333 +87,123 @@ struct ContentView: View {
             }
             .navigationTitle("iBudgetBuddy")
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
+
+                // MARK: - Budget Switcher
+                ToolbarItem(placement: .navigationBarLeading) {
                     Menu {
-                        if vm.selectedBudgetId != nil {
-                            Button {
-                                showAddTransaction = true
-                            } label: {
-                                Label("Add Transaction", systemImage: "plus.circle")
+                        ForEach(viewModel.budgets) { budget in
+                            Button(budget.name) {
+                                viewModel.selectBudget(budget)
                             }
-                            .accessibilityIdentifier("addTransactionMenuItem")
-
-                            Button {
-                                showAddRecurring = true
-                            } label: {
-                                Label("Add Recurring", systemImage: "arrow.triangle.2.circlepath")
-                            }
-                            .accessibilityIdentifier("addRecurringMenuItem")
                         }
-
-                        Button {
-                            showAddBudget = true
-                        } label: {
-                            Label("Add Budget", systemImage: "folder.badge.plus")
-                        }
-                        .accessibilityIdentifier("addBudgetMenuItem")
-
                     } label: {
-                        Image(systemName: "plus.circle.fill")
-                            .imageScale(.large)
-                            .accessibilityIdentifier("addMenuButton")
+                        HStack {
+                            Image(systemName: "folder")
+                            Text(viewModel.selectedBudget?.name ?? "Select Budget")
+                        }
+                    }
+                }
+
+                // MARK: - Add Buttons + Reports Button
+                ToolbarItemGroup(placement: .navigationBarTrailing) {
+
+                    // Reports Button
+                    if let budget = viewModel.selectedBudget {
+                        NavigationLink(destination: ReportsView(budgetId: budget.id)) {
+                            Image(systemName: "chart.pie.fill")
+                        }
+                    }
+
+                    // Add Transaction
+                    Button {
+                        showingAddTransaction = true
+                    } label: {
+                        Image(systemName: "plus.circle")
+                    }
+
+                    // Add Recurring
+                    Button {
+                        showingAddRecurring = true
+                    } label: {
+                        Image(systemName: "repeat.circle")
                     }
                 }
             }
-            .sheet(isPresented: $showAddTransaction) {
-                AddTransactionView { date, desc, amount, isIncome in
-                    vm.addTransaction(date: date,
-                                      description: desc,
-                                      amount: amount,
-                                      isIncome: isIncome)
-                }
+
+            // MARK: - Edit Transaction Sheet
+            .sheet(item: $editingTransaction) { tx in
+                TransactionEditWrapperView(
+                    transaction: tx,
+                    onSave: { updated in
+                        viewModel.updateTransaction(updated)
+                        editingTransaction = nil
+                    },
+                    onCancel: {
+                        editingTransaction = nil
+                    }
+                )
             }
-            .sheet(isPresented: $showAddRecurring) {
-                AddRecurringView(budgetId: vm.selectedBudgetId ?? UUID()) { recurring in
-                    vm.addRecurring(recurring)
-                }
+
+            // MARK: - Edit Recurring Sheet
+            .sheet(item: $editingRecurring) { item in
+                RecurringEditWrapperView(
+                    recurring: item,
+                    onSave: { updated in
+                        viewModel.updateRecurring(updated)
+                        editingRecurring = nil
+                    },
+                    onCancel: {
+                        editingRecurring = nil
+                    }
+                )
             }
-            .sheet(isPresented: $showAddBudget) {
-                AddBudgetView { budget in
-                    vm.addBudget(budget)
-                    vm.selectBudget(budget.id)
-                }
-            }
-            .sheet(isPresented: $vm.isPresentingEditTransaction) {
-                if let tx = vm.editingTransaction {
-                    TransactionEditWrapperView(
-                        transaction: tx,
-                        onSave: { updated in
-                            vm.finishEditing(updatedTransaction: updated)
-                        },
-                        onCancel: {
-                            vm.isPresentingEditTransaction = false
-                        }
+
+            // MARK: - Add Transaction Sheet
+            .sheet(isPresented: $showingAddTransaction) {
+                AddTransactionView { date, description, amount, isIncome, categoryId in
+                    guard let budgetId = viewModel.selectedBudget?.id else { return }
+
+                    let transaction = Transaction(
+                        id: UUID(),
+                        budgetId: budgetId,
+                        date: date,
+                        description: description,
+                        amount: amount,
+                        isIncome: isIncome,
+                        categoryId: categoryId,
+                        isRecurringInstance: false,   // NEW
+                        recurringRuleId: nil          // NEW
                     )
+
+                    viewModel.addTransaction(transaction)
                 }
             }
-            .sheet(isPresented: $vm.isPresentingEditRecurring) {
-                if let item = vm.editingRecurring {
-                    RecurringEditWrapperView(
-                        recurring: item,
-                        onSave: { updated in
-                            vm.finishEditingRecurring(updated)
-                        },
-                        onCancel: {
-                            vm.isPresentingEditRecurring = false
-                        }
-                    )
+
+
+            // MARK: - Add Recurring Sheet
+            .sheet(isPresented: $showingAddRecurring) {
+                if let budgetId = viewModel.selectedBudget?.id {
+                    AddRecurringView(budgetId: budgetId) { recurring in
+                        viewModel.addRecurring(recurring)
+                    }
+                } else {
+                    Text("Please select a budget first.")
                 }
             }
-            .sheet(isPresented: $showSettings) {
+
+            // MARK: - Settings Sheet
+            .sheet(isPresented: $showingSettings) {
                 SettingsView()
             }
-            .alert("Delete Budget?",
-                   isPresented: $vm.showDeleteBudgetAlert) {
-                Button("Delete", role: .destructive) {
-                    vm.confirmDeleteBudget()
-                }
-                Button("Cancel", role: .cancel) { }
-            } message: {
-                Text("This will permanently delete the budget and all associated transactions and recurring items.")
-            }
-            .onAppear {
-                seedUITestBudgetIfNeeded()
-            }
         }
     }
 
-    // MARK: - UI Test Seeding
-
-    private func seedUITestBudgetIfNeeded() {
-        guard uiTestMode else { return }
-        guard vm.budgets.isEmpty else { return }
-
-        let seeded = Budget(
-            id: UUID(),
-            name: "UI Test Budget"
-        )
-
-        vm.addBudget(seeded)
-        vm.selectBudget(seeded.id)
-
-    }
-
-    // MARK: - Sections
-
-    private var budgetPickerSection: some View {
-        HStack {
-            Text("Budget:")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-
-            budgetPicker
-        }
-        .padding([.top, .horizontal])
-    }
-
-    @ViewBuilder
-    private var budgetPicker: some View {
-        if uiTestMode {
-            Picker("Budget", selection: $vm.selectedBudgetId) {
-                ForEach(vm.budgets) { budget in
-                    Text(budget.name)
-                        .tag(Optional(budget.id))
-                        .accessibilityIdentifier("budgetPickerOption_\(budget.name)")
-                }
-            }
-            .pickerStyle(.inline)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .accessibilityIdentifier("budgetPicker")
-            .onChange(of: vm.selectedBudgetId) { newValue in
-                if let id = newValue {
-                    vm.selectBudget(id)
-                }
-            }
-        } else {
-            Picker("Budget", selection: $vm.selectedBudgetId) {
-                ForEach(vm.budgets) { budget in
-                    Text(budget.name)
-                        .tag(Optional(budget.id))
-                        .accessibilityIdentifier("budgetPickerOption_\(budget.name)")
-                }
-            }
-            .pickerStyle(.menu)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .accessibilityIdentifier("budgetPicker")
-            .onChange(of: vm.selectedBudgetId) { newValue in
-                if let id = newValue {
-                    vm.selectBudget(id)
-                }
-            }
-        }
-    }
-
-    private var summarySection: some View {
-        VStack(spacing: 8) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Income")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    Text(currency(vm.totalIncome))
-                        .font(.headline)
-                        .foregroundColor(.green)
-                }
-
-                Spacer()
-
-                VStack(alignment: .trailing, spacing: 4) {
-                    Text("Expenses")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    Text(currency(vm.totalExpense))
-                        .font(.headline)
-                        .foregroundColor(.red)
-                }
-            }
-
-            Divider()
-
-            HStack {
-                Text(vm.net >= 0 ? "Surplus" : "Deficit")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-
-                Spacer()
-
-                Text(currency(abs(vm.net)))
-                    .font(.title2.bold())
-                    .foregroundColor(vm.net >= 0 ? .green : .red)
-            }
-        }
-        .padding(.horizontal)
-        .padding(.bottom, 8)
-    }
-
-    private var transactionAndRecurringList: some View {
-        List {
-            Section(header: Text("Budgets")) {
-                ForEach(vm.budgets) { budget in
-                    HStack {
-                        Text(budget.name)
-                        Spacer()
-                        if vm.selectedBudgetId == budget.id {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundColor(.accentColor)
-                        }
-                    }
-                    .accessibilityElement(children: .combine)
-                    .accessibilityIdentifier("budgetRow_\(budget.name)")
-                    .onTapGesture {
-                        vm.selectBudget(budget.id)
-                    }
-                }
-                .onDelete { indexSet in
-                    indexSet.forEach { index in
-                        let budget = vm.budgets[index]
-                        vm.requestDeleteBudget(budget)
-                    }
-                }
-            }
-
-            if !vm.transactions.isEmpty {
-                Section(header: Text("Transactions")) {
-                    ForEach(vm.transactions) { t in
-                        Button {
-                            vm.startEditing(t)
-                        } label: {
-                            HStack {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(t.description)
-                                        .font(.body)
-                                    Text(dateString(t.date))
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                }
-
-                                Spacer()
-
-                                Text(amountString(t.amount))
-                                    .font(.body.bold())
-                                    .foregroundColor(t.amount > 0 ? .green : .red)
-                            }
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityElement(children: .combine)
-                        .accessibilityIdentifier("transactionRow_\(t.description)")
-                    }
-                    .onDelete(perform: vm.deleteTransactions)
-                }
-            }
-
-            if !vm.recurring.isEmpty {
-                Section(header: Text("Recurring Transactions")) {
-                    ForEach(vm.recurring) { r in
-                        Button {
-                            vm.startEditingRecurring(r)
-                        } label: {
-                            HStack {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(r.description)
-                                        .font(.body)
-                                    Text("Next: \(dateString(r.nextRunDate))")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                }
-
-                                Spacer()
-
-                                Text(amountString(r.isIncome ? r.amount : -r.amount))
-                                    .font(.body.bold())
-                                    .foregroundColor(r.isIncome ? .green : .red)
-                            }
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityElement(children: .combine)
-                        .accessibilityIdentifier("recurringRow_\(r.description)")
-                    }
-                    .onDelete { offsets in
-                        offsets.map { vm.recurring[$0] }.forEach(vm.deleteRecurring)
-                    }
-                }
-            }
-        }
-        .listStyle(.insetGrouped)
-    }
-
-    private var emptyState: some View {
-        VStack(spacing: 12) {
-            Text("No transactions yet")
-                .font(.headline)
-            Text("Use the + menu to add income, expenses, or recurring items for this budget.")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal)
-        }
-        .padding()
-    }
-
-    // MARK: - Helpers
-
+    // MARK: - Currency Helper
     private func currency(_ value: Double) -> String {
-        let f = NumberFormatter()
-        f.numberStyle = .currency
-        f.locale = Locale.current
-        return f.string(from: NSNumber(value: value)) ?? "$0.00"
-    }
-
-    private func dateString(_ date: Date) -> String {
-        let f = DateFormatter()
-        f.dateStyle = .medium
-        return f.string(from: date)
-    }
-
-    private func amountString(_ amount: Double) -> String {
-        let sign = amount >= 0 ? "+" : "-"
-        let absVal = abs(amount)
-        let formatted = currency(absVal)
-        let clean = formatted.replacingOccurrences(of: "-", with: "")
-        return "\(sign)\(clean)"
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.minimumFractionDigits = 2
+        formatter.maximumFractionDigits = 2
+        return formatter.string(from: NSNumber(value: value)) ?? "$0.00"
     }
 }

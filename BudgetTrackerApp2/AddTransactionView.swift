@@ -7,12 +7,18 @@ struct AddTransactionView: View {
     @State private var description = ""
     @State private var amountText = ""
     @State private var isIncome = true
+    @State private var selectedCategoryId: UUID? = nil
 
-    var onSave: (Date, String, Double, Bool) -> Void
+    // Updated to include categoryId
+    var onSave: (Date, String, Double, Bool, UUID?) -> Void
+
+    // Load categories once when the view appears
+    @State private var categories: [Category] = []
 
     var body: some View {
         NavigationView {
             Form {
+                // MARK: - Details
                 Section("Details") {
                     TextField("Description", text: $description)
                         .accessibilityIdentifier("transactionDescriptionField")
@@ -25,6 +31,7 @@ struct AddTransactionView: View {
                         .accessibilityIdentifier("transactionDatePicker")
                 }
 
+                // MARK: - Type
                 Section("Type") {
                     Picker("Type", selection: $isIncome) {
                         Text("Income").tag(true)
@@ -32,6 +39,29 @@ struct AddTransactionView: View {
                     }
                     .pickerStyle(.segmented)
                     .accessibilityIdentifier("transactionTypePicker")
+                    .onChange(of: isIncome) { _ in
+                        reloadCategories()
+                        selectedCategoryId = nil
+                    }
+                }
+
+                // MARK: - Category
+                Section("Category") {
+                    NavigationLink {
+                        CategorySelectionView(
+                            categories: filteredCategories,
+                            isIncome: isIncome,
+                            selectedCategoryId: $selectedCategoryId
+                        )
+                    } label: {
+                        HStack {
+                            Text("Category")
+                            Spacer()
+                            Text(categoryName(for: selectedCategoryId))
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    .accessibilityIdentifier("transactionCategoryPicker")
                 }
             }
             .navigationTitle("Add Transaction")
@@ -46,18 +76,50 @@ struct AddTransactionView: View {
                         .accessibilityIdentifier("saveTransactionButton")
                 }
             }
+            .onAppear {
+                reloadCategories()
+            }
         }
     }
 
+    // MARK: - Computed filtered list
+    private var filteredCategories: [Category] {
+        categories.filter { $0.type == (isIncome ? .income : .expense) }
+    }
+
+    // MARK: - Validation
     private var canSave: Bool {
         guard !description.trimmingCharacters(in: .whitespaces).isEmpty else { return false }
         guard let value = Double(amountText), value > 0 else { return false }
         return true
     }
 
+    // MARK: - Save
     private func save() {
         guard let value = Double(amountText), value > 0 else { return }
-        onSave(date, description.trimmingCharacters(in: .whitespaces), value, isIncome)
+
+        // MARK: - Normalize sign based on income/expense
+        let normalizedAmount = isIncome ? abs(value) : -abs(value)
+
+        onSave(
+            date,
+            description.trimmingCharacters(in: .whitespaces),
+            normalizedAmount,
+            isIncome,
+            selectedCategoryId
+        )
+
         dismiss()
     }
+
+    // MARK: - Helpers
+    private func reloadCategories() {
+        categories = Database.shared.fetchActiveCategories()
+    }
+
+    private func categoryName(for id: UUID?) -> String {
+        guard let id else { return "None" }
+        return categories.first(where: { $0.id == id })?.name ?? "None"
+    }
 }
+

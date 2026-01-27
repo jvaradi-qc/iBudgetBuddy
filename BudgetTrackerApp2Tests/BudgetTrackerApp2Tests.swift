@@ -37,7 +37,8 @@ final class BudgetTrackerApp2Tests: XCTestCase {
             date: Date(),
             description: "Rent",
             amount: -1200,
-            isIncome: false
+            isIncome: false,
+            categoryId: nil
         )
         mockDB.transactions[budget.id] = [tx]
 
@@ -57,7 +58,8 @@ final class BudgetTrackerApp2Tests: XCTestCase {
             date: Date(),
             description: "Coffee",
             amount: -5,
-            isIncome: false
+            isIncome: false,
+            categoryId: nil
         )
         mockDB.transactions[budget.id] = [tx]
 
@@ -78,7 +80,8 @@ final class BudgetTrackerApp2Tests: XCTestCase {
             date: Date(),
             description: "Tea",
             amount: -3,
-            isIncome: false
+            isIncome: false,
+            categoryId: nil
         )
 
         XCTAssertEqual(vm.transactions.count, 1)
@@ -96,7 +99,8 @@ final class BudgetTrackerApp2Tests: XCTestCase {
             date: Date(),
             description: "Tea",
             amount: -3,
-            isIncome: false
+            isIncome: false,
+            categoryId: nil
         )
         vm.transactions = [tx]
 
@@ -116,7 +120,8 @@ final class BudgetTrackerApp2Tests: XCTestCase {
             date: Date(),
             description: "Tea",
             amount: -3,
-            isIncome: false
+            isIncome: false,
+            categoryId: nil
         )
 
         // ✅ Seed the mock database instead of vm.transactions
@@ -129,7 +134,8 @@ final class BudgetTrackerApp2Tests: XCTestCase {
             date: Date(),
             description: "Latte",
             amount: -5,
-            isIncome: false
+            isIncome: false,
+            categoryId: nil
         )
 
         vm.finishEditing(updatedTransaction: updated)
@@ -151,7 +157,8 @@ final class BudgetTrackerApp2Tests: XCTestCase {
             amount: 1200,
             isIncome: true,
             frequency: .monthly,
-            nextRunDate: Date()
+            nextRunDate: Date(),
+            categoryId: nil
         )
 
         vm.addRecurring(recurring)
@@ -174,7 +181,9 @@ final class BudgetTrackerApp2Tests: XCTestCase {
             amount: 1200,
             isIncome: true,
             frequency: .monthly,
-            nextRunDate: yesterday
+            nextRunDate: yesterday,
+            categoryId: nil
+
         )
 
         mockDB.insertRecurring(recurring)
@@ -197,7 +206,8 @@ final class BudgetTrackerApp2Tests: XCTestCase {
                 date: Date(),
                 description: "Paycheck",
                 amount: 1000,
-                isIncome: true
+                isIncome: true,
+                categoryId: nil
             ),
             Transaction(
                 id: UUID(),
@@ -205,7 +215,8 @@ final class BudgetTrackerApp2Tests: XCTestCase {
                 date: Date(),
                 description: "Groceries",
                 amount: -200,
-                isIncome: false
+                isIncome: false,
+                categoryId: nil
             )
         ]
 

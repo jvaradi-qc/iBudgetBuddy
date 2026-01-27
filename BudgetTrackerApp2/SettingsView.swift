@@ -45,6 +45,14 @@ struct SettingsView: View {
                     .pickerStyle(.segmented)
                 }
 
+                // MARK: - Categories Section
+                Section(header: Text("Categories")) {
+                    NavigationLink("Manage Categories") {
+                        CategoriesView()
+                    }
+                    .accessibilityIdentifier("manageCategoriesButton")
+                }
+
                 // MARK: - App Info Section
                 Section(header: Text("App Info")) {
                     HStack {
@@ -84,10 +92,9 @@ struct SettingsView: View {
 
     // MARK: - Rate App
     private func rateApp() {
-        // Replace YOUR_APP_ID with your real App Store ID once you have it
         let appID = "6757996353"
         let url = URL(string: "https://apps.apple.com/app/id\(appID)?action=write-review")!
-
         UIApplication.shared.open(url)
     }
 }
+
