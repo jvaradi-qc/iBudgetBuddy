@@ -15,7 +15,7 @@ final class ContentViewModel: ObservableObject {
     @Published var budgets: [Budget] = []
     @Published var selectedBudget: Budget? = nil
 
-    // Unified: regular + recurring instances
+    // Real transactions (regular + materialized recurring)
     @Published var transactions: [Transaction] = []
 
     // Recurring rules (for editing only)
@@ -86,52 +86,6 @@ final class ContentViewModel: ObservableObject {
         recurring = Database.shared.fetchRecurring(budgetId: budgetId)
     }
 
-
-    // MARK: - Merge Logic (copied from ReportsViewModel)
-    func mergedTransactions(forMonth month: Int, year: Int, budgetId: UUID) -> [Transaction] {
-        let calendar = Calendar.current
-
-        // Start and end of month
-        let comps = DateComponents(year: year, month: month)
-        guard let startDate = calendar.date(from: comps),
-              let range = calendar.range(of: .day, in: .month, for: startDate),
-              let endDate = calendar.date(byAdding: .day, value: range.count - 1, to: startDate)
-        else { return [] }
-
-        // Regular transactions
-        let regular = Database.shared.fetchTransactions(budgetId: budgetId).filter { tx in
-            let comps = calendar.dateComponents([.year, .month], from: tx.date)
-            return comps.year == year && comps.month == month
-        }
-
-        // Recurring rules
-        let recurringRules = Database.shared.fetchRecurring(budgetId: budgetId)
-
-        // Expand recurring rules into actual instances for this month
-        let expanded: [Transaction] = recurringRules.compactMap { rule in
-            let runDate = rule.nextRunDate
-
-            if runDate >= startDate && runDate <= endDate {
-                return Transaction(
-                    id: UUID(),
-                    budgetId: budgetId,
-                    date: runDate,
-                    description: rule.description,
-                    amount: rule.isIncome ? rule.amount : -rule.amount,
-                    isIncome: rule.isIncome,
-                    categoryId: rule.categoryId,
-                    isRecurringInstance: true,
-                    recurringRuleId: rule.id
-                )
-
-            }
-
-            return nil
-        }
-
-        return (regular + expanded).sorted { $0.date < $1.date }
-    }
-
     // MARK: - Add
     func addTransaction(_ t: Transaction) {
         Database.shared.insert(transaction: t)
@@ -177,3 +131,4 @@ final class ContentViewModel: ObservableObject {
         loadData(for: budgetId)
     }
 }
+
