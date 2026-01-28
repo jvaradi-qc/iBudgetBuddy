@@ -1,140 +1,127 @@
-//
-//  ContentViewModel.swift
-//  BudgetTrackerApp2
-//
-//  Created by JOHN VARADI on 1/22/26.
-//
-
 import Foundation
-import SwiftUI
 import Combine
 
 final class ContentViewModel: ObservableObject {
 
-    // MARK: - Published State
     @Published var budgets: [Budget] = []
     @Published var selectedBudget: Budget? = nil
 
-    // Real transactions (regular + materialized recurring)
     @Published var transactions: [Transaction] = []
-
-    // Recurring rules (for editing only)
     @Published var recurring: [RecurringTransaction] = []
 
-    // MARK: - Selected Month/Year (NEW)
-    @Published var selectedMonth: Int
-    @Published var selectedYear: Int
+    @Published var selectedMonth: Int = Calendar.current.component(.month, from: Date())
+    @Published var selectedYear: Int = Calendar.current.component(.year, from: Date())
 
-    // MARK: - Summary
-    var totalIncome: Double {
-        transactions
-            .filter { $0.amount > 0 }
-            .map { $0.amount }
-            .reduce(0, +)
-    }
+    private let db: DatabaseProtocol
 
-    var totalExpenses: Double {
-        transactions
-            .filter { $0.amount < 0 }
-            .map { abs($0.amount) }
-            .reduce(0, +)
-    }
-
-    var netAmount: Double {
-        totalIncome - totalExpenses
-    }
-
-    // MARK: - Init
-    init() {
-        let now = Date()
-        let calendar = Calendar.current
-        self.selectedMonth = calendar.component(.month, from: now)
-        self.selectedYear = calendar.component(.year, from: now)
-
+    init(database: DatabaseProtocol = Database.shared) {
+        self.db = database
         loadBudgets()
+
+        if budgets.isEmpty {
+            let defaultBudget = Budget(id: UUID(), name: "My Budget")
+            db.insertBudget(defaultBudget)
+            loadBudgets()
+        }
+
+        if let first = budgets.first {
+            selectedBudget = first
+            loadData(for: first.id)
+        }
     }
 
-    // MARK: - Budget Loading
+    // MARK: - Loaders
+
     func loadBudgets() {
-        budgets = Database.shared.fetchBudgets()
-
-        if selectedBudget == nil {
-            selectedBudget = budgets.first
-        }
-
-        if let budget = selectedBudget {
-            loadData(for: budget.id)
-        }
+        budgets = db.fetchBudgets()
     }
+
+    func loadData(for budgetId: UUID) {
+        transactions = db.fetchTransactions(budgetId: budgetId)
+        recurring = db.fetchRecurring(budgetId: budgetId)
+    }
+
+    // MARK: - Budget Selection
 
     func selectBudget(_ budget: Budget) {
         selectedBudget = budget
         loadData(for: budget.id)
     }
 
-    // MARK: - Load Transactions + Recurring
-    func loadData(for budgetId: UUID) {
-        // 1. Materialize recurring instances for the selected month
-        Database.shared.materializeRecurringForCurrentMonth(budgetId: budgetId)
+    // MARK: - Budget Deletion (NEW)
 
-        let calendar = Calendar.current
-        let month = selectedMonth
-        let year = selectedYear
+    func deleteCurrentBudget() {
+        guard let budget = selectedBudget else { return }
 
-        // 2. Load REAL transactions (now includes materialized recurring)
-        transactions = Database.shared.fetchTransactions(budgetId: budgetId)
-            .filter { tx in
-                let comps = calendar.dateComponents([.year, .month], from: tx.date)
-                return comps.year == year && comps.month == month
-            }
-            .sorted { $0.date < $1.date }
+        db.deleteTransactions(budgetId: budget.id)
+        db.deleteRecurring(budgetId: budget.id)
+        db.deleteBudget(id: budget.id)
 
-        // 3. Load recurring rules AFTER materialization
-        recurring = Database.shared.fetchRecurring(budgetId: budgetId)
+        loadBudgets()
+
+        if let first = budgets.first {
+            selectedBudget = first
+            loadData(for: first.id)
+        } else {
+            selectedBudget = nil
+            transactions = []
+            recurring = []
+        }
     }
 
-    // MARK: - Add
-    func addTransaction(_ t: Transaction) {
-        Database.shared.insert(transaction: t)
-        loadData(for: t.budgetId)
+    // MARK: - Computed Summary
+
+    var totalIncome: Double {
+        transactions.filter { $0.amount > 0 }.map(\.amount).reduce(0, +)
     }
 
-    func addRecurring(_ r: RecurringTransaction) {
-        Database.shared.insertRecurring(r)
-        loadData(for: r.budgetId)
+    var totalExpenses: Double {
+        transactions.filter { $0.amount < 0 }.map { abs($0.amount) }.reduce(0, +)
     }
 
-    // MARK: - Update
-    func updateTransaction(_ t: Transaction) {
-        Database.shared.updateTransaction(t)
-        loadData(for: t.budgetId)
+    var netAmount: Double {
+        totalIncome - totalExpenses
     }
 
-    func updateRecurring(_ r: RecurringTransaction) {
-        Database.shared.updateRecurring(r)
-        loadData(for: r.budgetId)
+    // MARK: - Transactions
+
+    func addTransaction(_ tx: Transaction) {
+        db.insert(transaction: tx)
+        if let budget = selectedBudget {
+            loadData(for: budget.id)
+        }
     }
 
-    // MARK: - Delete
+    func updateTransaction(_ tx: Transaction) {
+        db.updateTransaction(tx)
+        if let budget = selectedBudget {
+            loadData(for: budget.id)
+        }
+    }
+
     func deleteTransaction(at offsets: IndexSet) {
-        guard let budgetId = selectedBudget?.id else { return }
-
         for index in offsets {
             let tx = transactions[index]
-            Database.shared.deleteTransaction(id: tx.id)
+            db.deleteTransaction(id: tx.id)
         }
-
-        loadData(for: budgetId)
+        if let budget = selectedBudget {
+            loadData(for: budget.id)
+        }
     }
 
-    func deleteRecurring(at offsets: IndexSet) {
-        guard let budgetId = selectedBudget?.id else { return }
+    // MARK: - Recurring
 
-        for index in offsets {
-            let item = recurring[index]
-            Database.shared.deleteRecurring(id: item.id)
+    func addRecurring(_ item: RecurringTransaction) {
+        db.insertRecurring(item)
+        if let budget = selectedBudget {
+            loadData(for: budget.id)
         }
+    }
 
-        loadData(for: budgetId)
+    func updateRecurring(_ item: RecurringTransaction) {
+        db.updateRecurring(item)
+        if let budget = selectedBudget {
+            loadData(for: budget.id)
+        }
     }
 }

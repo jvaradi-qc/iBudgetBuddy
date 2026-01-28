@@ -11,6 +11,8 @@ struct ContentView: View {
     @State private var editingTransaction: Transaction? = nil
     @State private var editingRecurring: RecurringTransaction? = nil
 
+    @State private var showingDeleteBudgetAlert = false   // NEW
+
     var body: some View {
         NavigationView {
             ZStack {
@@ -87,6 +89,7 @@ struct ContentView: View {
             }
             .navigationTitle("iBudgetBuddy")
             .toolbar {
+
                 // MARK: - Budget Switcher
                 ToolbarItem(placement: .navigationBarLeading) {
                     Menu {
@@ -95,6 +98,17 @@ struct ContentView: View {
                                 viewModel.selectBudget(budget)
                             }
                         }
+
+                        // NEW — Delete Budget
+                        if viewModel.selectedBudget != nil {
+                            Divider()
+                            Button(role: .destructive) {
+                                showingDeleteBudgetAlert = true
+                            } label: {
+                                Label("Delete This Budget", systemImage: "trash")
+                            }
+                        }
+
                     } label: {
                         HStack {
                             Image(systemName: "folder")
@@ -161,6 +175,18 @@ struct ContentView: View {
                 }
             }
 
+            // MARK: - Delete Budget Alert (NEW)
+            .alert("Delete Budget?",
+                   isPresented: $showingDeleteBudgetAlert) {
+                Button("Cancel", role: .cancel) {}
+
+                Button("Delete", role: .destructive) {
+                    viewModel.deleteCurrentBudget()
+                }
+            } message: {
+                Text("This will permanently delete the budget and all associated transactions and recurring rules.")
+            }
+
             // MARK: - Sheets
             .sheet(item: $editingTransaction) { tx in
                 TransactionEditWrapperView(
@@ -220,16 +246,12 @@ struct ContentView: View {
 
             .sheet(isPresented: $showingAddBudget) {
                 AddBudgetView { newBudget in
-                    // Persist to database
                     Database.shared.insertBudget(newBudget)
-
-                    // Update view model
                     viewModel.budgets.append(newBudget)
                     viewModel.selectBudget(newBudget)
                     viewModel.loadData(for: newBudget.id)
                 }
             }
-
 
             .sheet(isPresented: $showingSettings) {
                 SettingsView()
