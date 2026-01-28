@@ -187,7 +187,7 @@ struct ContentView: View {
                 Text("This will permanently delete the budget and all associated transactions and recurring rules.")
             }
 
-            // MARK: - Sheets
+            // MARK: - Edit Transaction Sheet
             .sheet(item: $editingTransaction) { tx in
                 TransactionEditWrapperView(
                     transaction: tx,
@@ -201,6 +201,7 @@ struct ContentView: View {
                 )
             }
 
+            // MARK: - Edit Recurring Sheet
             .sheet(item: $editingRecurring) { item in
                 RecurringEditWrapperView(
                     recurring: item,
@@ -214,6 +215,7 @@ struct ContentView: View {
                 )
             }
 
+            // MARK: - Add Transaction Sheet
             .sheet(isPresented: $showingAddTransaction) {
                 AddTransactionView { date, description, amount, isIncome, categoryId in
                     guard let budgetId = viewModel.selectedBudget?.id else { return }
@@ -234,6 +236,7 @@ struct ContentView: View {
                 }
             }
 
+            // MARK: - Add Recurring Sheet
             .sheet(isPresented: $showingAddRecurring) {
                 if let budgetId = viewModel.selectedBudget?.id {
                     AddRecurringView(budgetId: budgetId) { recurring in
@@ -244,6 +247,7 @@ struct ContentView: View {
                 }
             }
 
+            // MARK: - Add Budget Sheet
             .sheet(isPresented: $showingAddBudget) {
                 AddBudgetView { newBudget in
                     Database.shared.insertBudget(newBudget)
@@ -253,6 +257,7 @@ struct ContentView: View {
                 }
             }
 
+            // MARK: - Settings Sheet
             .sheet(isPresented: $showingSettings) {
                 SettingsView()
             }

@@ -1,8 +1,10 @@
 import Foundation
+import SwiftUI
 import Combine
 
 final class ContentViewModel: ObservableObject {
 
+    // MARK: - Published State
     @Published var budgets: [Budget] = []
     @Published var selectedBudget: Budget? = nil
 
@@ -12,36 +14,49 @@ final class ContentViewModel: ObservableObject {
     @Published var selectedMonth: Int = Calendar.current.component(.month, from: Date())
     @Published var selectedYear: Int = Calendar.current.component(.year, from: Date())
 
-    private let db: DatabaseProtocol
+    // MARK: - Summary
+    var totalIncome: Double {
+        transactions.filter { $0.amount > 0 }.map { $0.amount }.reduce(0, +)
+    }
 
-    init(database: DatabaseProtocol = Database.shared) {
-        self.db = database
+    var totalExpenses: Double {
+        transactions.filter { $0.amount < 0 }.map { abs($0.amount) }.reduce(0, +)
+    }
+
+    var netAmount: Double {
+        totalIncome - totalExpenses
+    }
+
+    // MARK: - Init
+    init() {
         loadBudgets()
-
-        if budgets.isEmpty {
-            let defaultBudget = Budget(id: UUID(), name: "My Budget")
-            db.insertBudget(defaultBudget)
-            loadBudgets()
-        }
-
-        if let first = budgets.first {
-            selectedBudget = first
-            loadData(for: first.id)
-        }
     }
 
-    // MARK: - Loaders
-
+    // MARK: - Budget Loading
     func loadBudgets() {
-        budgets = db.fetchBudgets()
+        budgets = Database.shared.fetchBudgets()
+
+        if selectedBudget == nil {
+            selectedBudget = budgets.first
+        }
+
+        if let budget = selectedBudget {
+            loadData(for: budget.id)
+        }
     }
 
+    func selectBudget(_ budget: Budget) {
+        selectedBudget = budget
+        loadData(for: budget.id)
+    }
+
+    // MARK: - Load Transactions + Recurring
     func loadData(for budgetId: UUID) {
 
-        // 1. Materialize recurring instances for the current month
+        // 1. Materialize recurring instances for the current month (based on "now")
         Database.shared.materializeRecurringForCurrentMonth(budgetId: budgetId)
 
-        // 2. Determine current month/year
+        // 2. Determine selected month/year
         let calendar = Calendar.current
         let comps = DateComponents(year: selectedYear, month: selectedMonth)
         guard let startOfMonth = calendar.date(from: comps),
@@ -64,21 +79,103 @@ final class ContentViewModel: ObservableObject {
         recurring = Database.shared.fetchRecurring(budgetId: budgetId)
     }
 
-    // MARK: - Budget Selection
+    // MARK: - Add
+    func addTransaction(_ t: Transaction) {
+        Database.shared.insert(transaction: t)
+        loadData(for: t.budgetId)
+    }
 
-    func selectBudget(_ budget: Budget) {
-        selectedBudget = budget
-        loadData(for: budget.id)
+    func addRecurring(_ r: RecurringTransaction) {
+        Database.shared.insertRecurring(r)
+        loadData(for: r.budgetId)
+    }
+
+    // MARK: - Update
+    func updateTransaction(_ t: Transaction) {
+        Database.shared.updateTransaction(t)
+        loadData(for: t.budgetId)
+    }
+
+    func updateRecurring(_ updated: RecurringTransaction) {
+
+        // 1. Update the rule itself
+        Database.shared.updateRecurring(updated)
+
+        guard let budgetId = selectedBudget?.id else { return }
+
+        // 2. Determine current selected month range
+        let calendar = Calendar.current
+        let comps = DateComponents(year: selectedYear, month: selectedMonth)
+        guard let startOfMonth = calendar.date(from: comps),
+              let range = calendar.range(of: .day, in: .month, for: startOfMonth),
+              let endOfMonth = calendar.date(byAdding: .day, value: range.count - 1, to: startOfMonth)
+        else { return }
+
+        // 3. Fetch existing materialized instances for this rule
+        let existing = Database.shared.fetchTransactions(budgetId: budgetId)
+            .filter { tx in
+                tx.isRecurringInstance &&
+                tx.recurringRuleId == updated.id &&
+                tx.date >= startOfMonth &&
+                tx.date <= endOfMonth
+            }
+
+        // 4. Detect if frequency changed
+        let oldRule = recurring.first(where: { $0.id == updated.id })
+        let frequencyChanged = oldRule?.frequency != updated.frequency
+
+        if frequencyChanged {
+            // Frequency changed → delete old instances and re-materialize
+            for tx in existing {
+                Database.shared.deleteTransaction(id: tx.id)
+            }
+
+            Database.shared.materializeRecurringForCurrentMonth(budgetId: budgetId)
+        } else {
+            // Frequency unchanged → update existing instances in place
+            for var tx in existing {
+                tx.description = updated.description
+                tx.isIncome = updated.isIncome
+                tx.amount = updated.isIncome ? updated.amount : -updated.amount
+                tx.categoryId = updated.categoryId
+                Database.shared.updateTransaction(tx)
+            }
+        }
+
+        // 5. Reload UI
+        loadData(for: budgetId)
+    }
+
+    // MARK: - Delete
+    func deleteTransaction(at offsets: IndexSet) {
+        guard let budgetId = selectedBudget?.id else { return }
+
+        for index in offsets {
+            let tx = transactions[index]
+            Database.shared.deleteTransaction(id: tx.id)
+        }
+
+        loadData(for: budgetId)
+    }
+
+    func deleteRecurring(at offsets: IndexSet) {
+        guard let budgetId = selectedBudget?.id else { return }
+
+        for index in offsets {
+            let item = recurring[index]
+            Database.shared.deleteRecurring(id: item.id)
+        }
+
+        loadData(for: budgetId)
     }
 
     // MARK: - Budget Deletion
-
     func deleteCurrentBudget() {
         guard let budget = selectedBudget else { return }
 
-        db.deleteTransactions(budgetId: budget.id)
-        db.deleteRecurring(budgetId: budget.id)
-        db.deleteBudget(id: budget.id)
+        Database.shared.deleteTransactions(budgetId: budget.id)
+        Database.shared.deleteRecurring(budgetId: budget.id)
+        Database.shared.deleteBudget(id: budget.id)
 
         loadBudgets()
 
@@ -90,86 +187,5 @@ final class ContentViewModel: ObservableObject {
             transactions = []
             recurring = []
         }
-    }
-
-    // MARK: - Computed Summary
-
-    var totalIncome: Double {
-        transactions.filter { $0.amount > 0 }.map(\.amount).reduce(0, +)
-    }
-
-    var totalExpenses: Double {
-        transactions.filter { $0.amount < 0 }.map { abs($0.amount) }.reduce(0, +)
-    }
-
-    var netAmount: Double {
-        totalIncome - totalExpenses
-    }
-
-    // MARK: - Transactions
-
-    func addTransaction(_ tx: Transaction) {
-        db.insert(transaction: tx)
-        if let budget = selectedBudget {
-            loadData(for: budget.id)
-        }
-    }
-
-    func updateTransaction(_ tx: Transaction) {
-        db.updateTransaction(tx)
-        if let budget = selectedBudget {
-            loadData(for: budget.id)
-        }
-    }
-
-    func deleteTransaction(at offsets: IndexSet) {
-        for index in offsets {
-            let tx = transactions[index]
-            db.deleteTransaction(id: tx.id)
-        }
-        if let budget = selectedBudget {
-            loadData(for: budget.id)
-        }
-    }
-
-    // MARK: - Recurring
-
-    func addRecurring(_ item: RecurringTransaction) {
-        db.insertRecurring(item)
-        if let budget = selectedBudget {
-            loadData(for: budget.id)
-        }
-    }
-
-    func updateRecurring(_ item: RecurringTransaction) {
-        db.updateRecurring(item)
-
-        guard let budgetId = selectedBudget?.id else { return }
-
-        // Remove existing materialized instances for this rule in the current month
-        let calendar = Calendar.current
-        let comps = DateComponents(year: selectedYear, month: selectedMonth)
-        if let startOfMonth = calendar.date(from: comps),
-           let range = calendar.range(of: .day, in: .month, for: startOfMonth),
-           let endOfMonth = calendar.date(byAdding: .day, value: range.count - 1, to: startOfMonth) {
-
-            let existing = db.fetchTransactions(budgetId: budgetId)
-                .filter { tx in
-                    tx.isRecurringInstance &&
-                    tx.recurringRuleId == item.id &&
-                    tx.date >= startOfMonth &&
-                    tx.date <= endOfMonth
-                }
-
-            for tx in existing {
-                db.deleteTransaction(id: tx.id)
-            }
-        }
-
-        // Re-materialize this month (this applies updated isIncome, amount, description, category)
-        Database.shared.materializeRecurringForCurrentMonth(budgetId: budgetId)
-
-        // Reload UI
-        loadData(for: budgetId)
     }
 }
