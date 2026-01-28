@@ -36,6 +36,13 @@ final class ContentViewModel: ObservableObject {
     func loadBudgets() {
         budgets = Database.shared.fetchBudgets()
 
+        // Restore default "My Budget" if DB is empty
+        if budgets.isEmpty {
+            let defaultBudget = Budget(id: UUID(), name: "My Budget")
+            Database.shared.insertBudget(defaultBudget)
+            budgets = [defaultBudget]
+        }
+
         if selectedBudget == nil {
             selectedBudget = budgets.first
         }
@@ -136,7 +143,8 @@ final class ContentViewModel: ObservableObject {
             for var tx in existing {
                 tx.description = updated.description
                 tx.isIncome = updated.isIncome
-                tx.amount = updated.isIncome ? updated.amount : -updated.amount
+                // IMPORTANT: amount already has correct sign from the editor
+                tx.amount = updated.amount
                 tx.categoryId = updated.categoryId
                 Database.shared.updateTransaction(tx)
             }
