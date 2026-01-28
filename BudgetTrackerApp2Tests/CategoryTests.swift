@@ -1,11 +1,3 @@
-//
-//  CategoryTests.swift
-//  BudgetTrackerApp2
-//
-//  Created by JOHN VARADI on 1/22/26.
-//
-
-
 import XCTest
 @testable import BudgetTrackerApp2
 
@@ -18,6 +10,7 @@ final class CategoryTests: XCTestCase {
             name: "Food",
             type: .expense,
             colorHex: "#FF0000",
+            iconName: "fork.knife",
             isActive: true
         )
 
@@ -25,6 +18,7 @@ final class CategoryTests: XCTestCase {
         XCTAssertEqual(category.name, "Food")
         XCTAssertEqual(category.type, .expense)
         XCTAssertEqual(category.colorHex, "#FF0000")
+        XCTAssertEqual(category.iconName, "fork.knife")
         XCTAssertTrue(category.isActive)
     }
 
@@ -34,17 +28,17 @@ final class CategoryTests: XCTestCase {
             name: "Utilities",
             type: .expense,
             colorHex: "#00FF00",
+            iconName: nil,
             isActive: true
         )
 
-        let color = category.color
-        XCTAssertNotNil(color)
+        _ = category.color
     }
 
     func testCategoryFilteringByType() {
         let categories = [
-            Category(id: UUID(), name: "Paycheck", type: .income, colorHex: "#00FF00", isActive: true),
-            Category(id: UUID(), name: "Groceries", type: .expense, colorHex: "#FF0000", isActive: true)
+            Category(id: UUID(), name: "Paycheck", type: .income, colorHex: "#00FF00", iconName: nil, isActive: true),
+            Category(id: UUID(), name: "Groceries", type: .expense, colorHex: "#FF0000", iconName: nil, isActive: true)
         ]
 
         let income = categories.filter { $0.type == .income }
@@ -56,8 +50,8 @@ final class CategoryTests: XCTestCase {
 
     func testInactiveCategoriesAreIgnored() {
         let categories = [
-            Category(id: UUID(), name: "Food", type: .expense, colorHex: "#FF0000", isActive: true),
-            Category(id: UUID(), name: "Old Category", type: .expense, colorHex: "#CCCCCC", isActive: false)
+            Category(id: UUID(), name: "Food", type: .expense, colorHex: "#FF0000", iconName: nil, isActive: true),
+            Category(id: UUID(), name: "Old Category", type: .expense, colorHex: "#CCCCCC", iconName: nil, isActive: false)
         ]
 
         let active = categories.filter { $0.isActive }

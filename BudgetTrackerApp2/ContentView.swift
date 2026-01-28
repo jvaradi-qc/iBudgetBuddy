@@ -99,7 +99,6 @@ struct ContentView: View {
                             }
                         }
 
-                        // NEW — Delete Budget
                         if viewModel.selectedBudget != nil {
                             Divider()
                             Button(role: .destructive) {
@@ -112,10 +111,12 @@ struct ContentView: View {
                     } label: {
                         HStack {
                             Image(systemName: "folder")
+                                .accessibilityIdentifier("folder")
                             Text(viewModel.selectedBudget?.name ?? "Select Budget")
                         }
                     }
                 }
+
 
                 // MARK: - Calendar Picker
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -171,8 +172,10 @@ struct ContentView: View {
                         }
                     } label: {
                         Image(systemName: "plus")
+                            .accessibilityIdentifier("plus")
                     }
                 }
+
             }
 
             // MARK: - Delete Budget Alert (NEW)

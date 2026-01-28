@@ -1,11 +1,3 @@
-//
-//  CategorySelectionViewModelTests.swift
-//  BudgetTrackerApp2
-//
-//  Created by JOHN VARADI on 1/22/26.
-//
-
-
 import XCTest
 @testable import BudgetTrackerApp2
 
@@ -13,8 +5,8 @@ final class CategorySelectionViewModelTests: XCTestCase {
 
     func testFiltersIncomeCategories() {
         let categories = [
-            Category(id: UUID(), name: "Paycheck", type: .income, colorHex: "#00FF00", isActive: true),
-            Category(id: UUID(), name: "Groceries", type: .expense, colorHex: "#FF0000", isActive: true)
+            Category(id: UUID(), name: "Paycheck", type: .income, colorHex: "#00FF00", iconName: nil, isActive: true),
+            Category(id: UUID(), name: "Groceries", type: .expense, colorHex: "#FF0000", iconName: nil, isActive: true)
         ]
 
         let vm = CategorySelectionViewModel(categories: categories, isIncome: true)
@@ -26,8 +18,8 @@ final class CategorySelectionViewModelTests: XCTestCase {
 
     func testFiltersExpenseCategories() {
         let categories = [
-            Category(id: UUID(), name: "Paycheck", type: .income, colorHex: "#00FF00", isActive: true),
-            Category(id: UUID(), name: "Groceries", type: .expense, colorHex: "#FF0000", isActive: true)
+            Category(id: UUID(), name: "Paycheck", type: .income, colorHex: "#00FF00", iconName: nil, isActive: true),
+            Category(id: UUID(), name: "Groceries", type: .expense, colorHex: "#FF0000", iconName: nil, isActive: true)
         ]
 
         let vm = CategorySelectionViewModel(categories: categories, isIncome: false)
@@ -39,7 +31,7 @@ final class CategorySelectionViewModelTests: XCTestCase {
 
     func testReturnsEmptyWhenNoMatchingCategories() {
         let categories = [
-            Category(id: UUID(), name: "Paycheck", type: .income, colorHex: "#00FF00", isActive: true)
+            Category(id: UUID(), name: "Paycheck", type: .income, colorHex: "#00FF00", iconName: nil, isActive: true)
         ]
 
         let vm = CategorySelectionViewModel(categories: categories, isIncome: false)

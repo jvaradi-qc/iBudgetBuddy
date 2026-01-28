@@ -1,7 +1,16 @@
+//
+//  BudgetViewModelTests.swift
+//  BudgetTrackerApp2
+//
+//  Created by JOHN VARADI on 1/27/26.
+//
+
+
+// BudgetViewModelTests.swift
 import XCTest
 @testable import BudgetTrackerApp2
 
-final class BudgetTrackerApp2Tests: XCTestCase {
+final class BudgetViewModelTests: XCTestCase {
 
     var vm: BudgetViewModel!
     var mockDB: MockDatabase!
@@ -50,7 +59,7 @@ final class BudgetTrackerApp2Tests: XCTestCase {
         XCTAssertEqual(vm.transactions.first?.description, "Rent")
     }
 
-    func testDeleteBudgetRemovesTransactions() {
+    func testDeleteBudgetRemovesTransactionsAndRecurring() {
         let budget = Budget(id: UUID(), name: "Temp")
         vm.addBudget(budget)
 
@@ -67,12 +76,26 @@ final class BudgetTrackerApp2Tests: XCTestCase {
         )
         mockDB.transactions[budget.id] = [tx]
 
+        let recurring = RecurringTransaction(
+            id: UUID(),
+            budgetId: budget.id,
+            description: "Rent",
+            amount: 1200,
+            isIncome: true,
+            frequency: .monthly,
+            nextRunDate: Date(),
+            categoryId: nil,
+            isActive: true
+        )
+        mockDB.recurring[budget.id] = [recurring]
+
         vm.selectBudget(budget.id)
         vm.requestDeleteBudget(budget)
         vm.confirmDeleteBudget()
 
         XCTAssertFalse(vm.budgets.contains(where: { $0.id == budget.id }))
         XCTAssertTrue(vm.transactions.isEmpty)
+        XCTAssertTrue(vm.recurring.isEmpty)
     }
 
     func testAddTransaction() {
@@ -83,13 +106,14 @@ final class BudgetTrackerApp2Tests: XCTestCase {
         vm.addTransaction(
             date: Date(),
             description: "Tea",
-            amount: -3,
+            amount: 3,
             isIncome: false,
             categoryId: nil
         )
 
         XCTAssertEqual(vm.transactions.count, 1)
         XCTAssertEqual(vm.transactions.first?.description, "Tea")
+        XCTAssertEqual(vm.transactions.first?.amount, -3)
     }
 
     func testDeleteTransaction() {
@@ -132,7 +156,6 @@ final class BudgetTrackerApp2Tests: XCTestCase {
             recurringRuleId: nil
         )
 
-        // Seed the mock database instead of vm.transactions
         mockDB.transactions[budget.id] = [tx]
         vm.loadTransactions()
 
@@ -151,6 +174,7 @@ final class BudgetTrackerApp2Tests: XCTestCase {
         vm.finishEditing(updatedTransaction: updated)
 
         XCTAssertEqual(vm.transactions.first?.description, "Latte")
+        XCTAssertEqual(vm.transactions.first?.amount, -5)
     }
 
     func testAddRecurring() {
@@ -176,7 +200,7 @@ final class BudgetTrackerApp2Tests: XCTestCase {
         XCTAssertEqual(vm.recurring.first?.description, "Rent")
     }
 
-    func testProcessDueRecurringCalculations() {
+    func testProcessDueRecurringCreatesTransactionsAndAdvancesDate() {
         let budget = Budget(id: UUID(), name: "Bills")
         vm.addBudget(budget)
         vm.selectBudget(budget.id)
@@ -201,6 +225,12 @@ final class BudgetTrackerApp2Tests: XCTestCase {
 
         XCTAssertEqual(vm.transactions.count, 1)
         XCTAssertEqual(vm.transactions.first?.description, "Rent")
+        XCTAssertTrue(vm.transactions.first?.isRecurringInstance == true)
+        XCTAssertEqual(vm.transactions.first?.recurringRuleId, recurring.id)
+
+        let updatedRecurring = mockDB.fetchRecurring(budgetId: budget.id).first
+        XCTAssertNotNil(updatedRecurring)
+        XCTAssertGreaterThan(updatedRecurring!.nextRunDate, Date())
     }
 
     func testTotalsCalculation() {
@@ -233,8 +263,33 @@ final class BudgetTrackerApp2Tests: XCTestCase {
             )
         ]
 
-        XCTAssertEqual(vm.totalIncome, 1000)
-        XCTAssertEqual(vm.totalExpense, 200)
-        XCTAssertEqual(vm.net, 800)
+        vm.recurring = [
+            RecurringTransaction(
+                id: UUID(),
+                budgetId: budget.id,
+                description: "Subscription",
+                amount: -50,
+                isIncome: false,
+                frequency: .monthly,
+                nextRunDate: Date(),
+                categoryId: nil,
+                isActive: true
+            ),
+            RecurringTransaction(
+                id: UUID(),
+                budgetId: budget.id,
+                description: "Bonus",
+                amount: 100,
+                isIncome: true,
+                frequency: .yearly,
+                nextRunDate: Date(),
+                categoryId: nil,
+                isActive: true
+            )
+        ]
+
+        XCTAssertEqual(vm.totalIncome, 1100)
+        XCTAssertEqual(vm.totalExpense, 250)
+        XCTAssertEqual(vm.net, 850)
     }
 }

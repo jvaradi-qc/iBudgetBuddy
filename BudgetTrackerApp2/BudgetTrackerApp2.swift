@@ -6,12 +6,12 @@ struct BudgetTrackerApp2App: App {
 
     var body: some Scene {
         WindowGroup {
+            let isUITest = ProcessInfo.processInfo.environment["UITEST_MODE"] == "1"
+
             ContentView()
-                .environment(\.horizontalSizeClass, .compact)
-                .environment(
-                    \.uiTestMode,
-                    ProcessInfo.processInfo.environment["UITEST_MODE"] == "1"
-                )
+                // Preserve your forced-compact layout EXCEPT during UI tests
+                .environment(\.horizontalSizeClass, isUITest ? nil : .compact)
+                .environment(\.uiTestMode, isUITest)
                 .preferredColorScheme(
                     appColorScheme == "light" ? .light :
                     appColorScheme == "dark" ? .dark : nil
@@ -19,4 +19,3 @@ struct BudgetTrackerApp2App: App {
         }
     }
 }
-
