@@ -5,6 +5,7 @@ struct ContentView: View {
 
     @State private var showingAddTransaction = false
     @State private var showingAddRecurring = false
+    @State private var showingAddBudget = false
     @State private var showingSettings = false
 
     @State private var editingTransaction: Transaction? = nil
@@ -150,6 +151,10 @@ struct ContentView: View {
                         Button("Add Recurring") {
                             showingAddRecurring = true
                         }
+
+                        Button("Add Budget") {
+                            showingAddBudget = true
+                        }
                     } label: {
                         Image(systemName: "plus")
                     }
@@ -213,6 +218,15 @@ struct ContentView: View {
                 }
             }
 
+            .sheet(isPresented: $showingAddBudget) {
+                AddBudgetView { newBudget in
+                    // Persist in view model
+                    viewModel.budgets.append(newBudget)
+                    viewModel.selectBudget(newBudget)
+                    viewModel.loadData(for: newBudget.id)
+                }
+            }
+
             .sheet(isPresented: $showingSettings) {
                 SettingsView()
             }
@@ -235,4 +249,3 @@ struct ContentView: View {
         return formatter.monthSymbols[month - 1]
     }
 }
-

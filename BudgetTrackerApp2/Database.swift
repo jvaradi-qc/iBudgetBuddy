@@ -15,9 +15,10 @@ final class Database: DatabaseProtocol {
     
     private init() {
         openDatabase()
-        createTablesIfNeeded()
-        migrateSchemaIfNeeded()
+        createTablesIfNeeded()      // Creates missing tables only
+        migrateSchemaIfNeeded()     // MUST run before creating tables
     }
+
     
     // MARK: - Open DB
     
@@ -89,18 +90,20 @@ final class Database: DatabaseProtocol {
     // MARK: - Migration
 
     private func migrateSchemaIfNeeded() {
+        execute("BEGIN TRANSACTION;")
+
         addColumnIfMissing(
             table: "transactions",
             column: "categoryId",
             type: "TEXT"
         )
-        
+
         addColumnIfMissing(
             table: "recurring",
             column: "categoryId",
             type: "TEXT"
         )
-        
+
         addColumnIfMissing(
             table: "categories",
             column: "isActive",
@@ -124,17 +127,40 @@ final class Database: DatabaseProtocol {
             column: "recurringRuleId",
             type: "TEXT"
         )
+
+        execute("COMMIT;")
     }
 
+
     private func addColumnIfMissing(table: String, column: String, type: String) {
-        let query = "PRAGMA table_info(\(table));"
-        var stmt: OpaquePointer?
-        
+        // 1. Check if table exists
+        let tableExistsQuery = """
+        SELECT name FROM sqlite_master WHERE type='table' AND name='\(table)';
+        """
+        var tableStmt: OpaquePointer?
+        var tableExists = false
+
+        if sqlite3_prepare_v2(db, tableExistsQuery, -1, &tableStmt, nil) == SQLITE_OK {
+            if sqlite3_step(tableStmt) == SQLITE_ROW {
+                tableExists = true
+            }
+        }
+        sqlite3_finalize(tableStmt)
+
+        // If table does not exist, DO NOT run migrations on it
+        guard tableExists else {
+            logger.debug("Skipping migration for missing table \(table)")
+            return
+        }
+
+        // 2. Check if column exists
+        let pragmaQuery = "PRAGMA table_info(\(table));"
+        var pragmaStmt: OpaquePointer?
         var columnExists = false
-        
-        if sqlite3_prepare_v2(db, query, -1, &stmt, nil) == SQLITE_OK {
-            while sqlite3_step(stmt) == SQLITE_ROW {
-                if let colNameC = sqlite3_column_text(stmt, 1) {
+
+        if sqlite3_prepare_v2(db, pragmaQuery, -1, &pragmaStmt, nil) == SQLITE_OK {
+            while sqlite3_step(pragmaStmt) == SQLITE_ROW {
+                if let colNameC = sqlite3_column_text(pragmaStmt, 1) {
                     let colName = String(cString: colNameC)
                     if colName == column {
                         columnExists = true
@@ -143,14 +169,15 @@ final class Database: DatabaseProtocol {
                 }
             }
         }
-        
-        sqlite3_finalize(stmt)
-        
+        sqlite3_finalize(pragmaStmt)
+
+        // 3. Add column if missing
         if !columnExists {
             execute("ALTER TABLE \(table) ADD COLUMN \(column) \(type);")
             logger.debug("Added missing column \(column) to table \(table)")
         }
     }
+
 
     // MARK: - Materialization Engine
 

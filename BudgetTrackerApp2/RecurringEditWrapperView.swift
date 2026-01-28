@@ -12,7 +12,7 @@ struct RecurringEditWrapperView: View {
     @State private var nextRunDate: Date
     @State private var selectedCategoryId: UUID?
 
-    @State private var isActive: Bool        // NEW
+    @State private var isActive: Bool
     @State private var categories: [Category] = []
 
     init(
@@ -34,14 +34,12 @@ struct RecurringEditWrapperView: View {
         _nextRunDate = State(initialValue: recurring.nextRunDate)
         _selectedCategoryId = State(initialValue: recurring.categoryId)
 
-        _isActive = State(initialValue: recurring.isActive)   // NEW
+        _isActive = State(initialValue: recurring.isActive)
     }
 
     var body: some View {
         NavigationView {
             Form {
-
-                // MARK: - Edit Fields
                 Section("Edit Recurring Transaction") {
                     TextField("Description", text: $description)
 
@@ -76,10 +74,9 @@ struct RecurringEditWrapperView: View {
 
                     DatePicker("Next Run Date", selection: $nextRunDate, displayedComponents: .date)
 
-                    Toggle("Active", isOn: $isActive)     // NEW
+                    Toggle("Active", isOn: $isActive)
                 }
 
-                // MARK: - Category
                 Section("Category") {
                     NavigationLink {
                         CategorySelectionView(
@@ -102,25 +99,27 @@ struct RecurringEditWrapperView: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel", action: onCancel)
                 }
+
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
-
                         let cleaned = amountString
                             .replacingOccurrences(of: "$", with: "")
                             .replacingOccurrences(of: ",", with: "")
 
-                        guard let amount = Double(cleaned) else { return }
+                        guard let rawAmount = Double(cleaned) else { return }
+
+                        let normalizedAmount = isIncome ? abs(rawAmount) : -abs(rawAmount)
 
                         let updated = RecurringTransaction(
                             id: recurring.id,
                             budgetId: recurring.budgetId,
                             description: description,
-                            amount: amount,
+                            amount: normalizedAmount,
                             isIncome: isIncome,
                             frequency: frequency,
                             nextRunDate: nextRunDate,
                             categoryId: selectedCategoryId,
-                            isActive: isActive        // NEW
+                            isActive: isActive
                         )
 
                         onSave(updated)

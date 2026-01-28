@@ -25,7 +25,6 @@ struct TransactionEditWrapperView: View {
         _date = State(initialValue: transaction.date)
         _description = State(initialValue: transaction.description)
 
-        // Proper currency formatting for prefill
         let formattedAmount = TransactionEditWrapperView.currencyString(transaction.amount)
         _amountString = State(initialValue: formattedAmount)
 
@@ -36,7 +35,6 @@ struct TransactionEditWrapperView: View {
     var body: some View {
         NavigationView {
             Form {
-                // MARK: - Edit Fields
                 Section("Edit Transaction") {
                     TextField("Description", text: $description)
 
@@ -50,27 +48,22 @@ struct TransactionEditWrapperView: View {
                             reloadCategories()
                             selectedCategoryId = nil
 
-                            // MARK: - Normalize amount sign when toggling income/expense
                             let cleaned = amountString
                                 .replacingOccurrences(of: "$", with: "")
                                 .replacingOccurrences(of: ",", with: "")
 
                             if var amount = Double(cleaned) {
                                 if newValue {
-                                    // Income → ensure positive
                                     if amount < 0 { amount = -amount }
                                 } else {
-                                    // Expense → ensure negative
                                     if amount > 0 { amount = -amount }
                                 }
 
-                                // Reformat back into currency string
                                 amountString = TransactionEditWrapperView.currencyString(amount)
                             }
                         }
                 }
 
-                // MARK: - Category
                 Section("Category") {
                     NavigationLink {
                         CategorySelectionView(
@@ -93,25 +86,27 @@ struct TransactionEditWrapperView: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel", action: onCancel)
                 }
+
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
-                        // Strip currency formatting before converting
                         let cleaned = amountString
                             .replacingOccurrences(of: "$", with: "")
                             .replacingOccurrences(of: ",", with: "")
 
-                        guard let amount = Double(cleaned) else { return }
+                        guard let rawAmount = Double(cleaned) else { return }
+
+                        let normalizedAmount = isIncome ? abs(rawAmount) : -abs(rawAmount)
 
                         let updated = Transaction(
-                            id: UUID(),
+                            id: transaction.id,
                             budgetId: transaction.budgetId,
                             date: date,
                             description: description,
-                            amount: amount,
+                            amount: normalizedAmount,
                             isIncome: isIncome,
-                            categoryId: transaction.categoryId,
-                            isRecurringInstance: false,   // NEW
-                            recurringRuleId: nil          // NEW
+                            categoryId: selectedCategoryId,
+                            isRecurringInstance: transaction.isRecurringInstance,
+                            recurringRuleId: transaction.recurringRuleId
                         )
 
                         onSave(updated)
@@ -127,12 +122,10 @@ struct TransactionEditWrapperView: View {
         }
     }
 
-    // MARK: - Filtered categories by type
     private var filteredCategories: [Category] {
         categories.filter { $0.type == (isIncome ? .income : .expense) }
     }
 
-    // MARK: - Helpers
     private func reloadCategories() {
         categories = Database.shared.fetchActiveCategories()
     }
@@ -142,7 +135,6 @@ struct TransactionEditWrapperView: View {
         return categories.first(where: { $0.id == id })?.name ?? "None"
     }
 
-    // MARK: - Currency Formatter
     static func currencyString(_ value: Double) -> String {
         let formatter = NumberFormatter()
         formatter.numberStyle = .currency

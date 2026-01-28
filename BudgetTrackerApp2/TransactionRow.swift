@@ -15,6 +15,7 @@ struct TransactionRow: View {
 
                 if let category {
                     CategoryBadge(category: category)
+                        .id(category.id)   // ✅ force refresh when category changes
                 }
             }
 
