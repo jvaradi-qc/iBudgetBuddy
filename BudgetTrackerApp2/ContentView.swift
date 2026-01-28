@@ -220,12 +220,16 @@ struct ContentView: View {
 
             .sheet(isPresented: $showingAddBudget) {
                 AddBudgetView { newBudget in
-                    // Persist in view model
+                    // Persist to database
+                    Database.shared.insertBudget(newBudget)
+
+                    // Update view model
                     viewModel.budgets.append(newBudget)
                     viewModel.selectBudget(newBudget)
                     viewModel.loadData(for: newBudget.id)
                 }
             }
+
 
             .sheet(isPresented: $showingSettings) {
                 SettingsView()
