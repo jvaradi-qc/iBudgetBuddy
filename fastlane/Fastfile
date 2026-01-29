@@ -15,7 +15,8 @@ platform :ios do
     # Build the app for release
     build_app(
       scheme: "BudgetTrackerApp2",
-      export_method: "app-store"
+      export_method: "app-store",
+      allowProvisioningUpdates: true
     )
 
     # Upload to TestFlight
