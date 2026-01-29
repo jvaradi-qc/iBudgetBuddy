@@ -57,6 +57,11 @@ platform :ios do
       xcodebuild_formatter: "",
       skip_codesigning: true,
       skip_profile_detection: true,
+      export_options: {
+        provisioningProfiles: {
+          "com.vitalcodetechlabs.iBudgetBuddy" => "iBudgetBuddy_AppStore"
+        }
+      },
       verbose: true,
       xcargs: "-showBuildTimingSummary"
     )
