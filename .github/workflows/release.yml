@@ -32,17 +32,21 @@ jobs:
       run: |
         echo "$IOS_CERTIFICATE_BASE64" | base64 --decode > certificate.p12
 
+        # Unlock login keychain
         security unlock-keychain -p "" ~/Library/Keychains/login.keychain-db
 
+        # Import certificate into login keychain
         security import certificate.p12 \
           -k ~/Library/Keychains/login.keychain-db \
           -P "$IOS_CERTIFICATE_PASSWORD" \
           -A
 
+        # Ensure login keychain is used
         security list-keychains -s ~/Library/Keychains/login.keychain-db
         security default-keychain -s ~/Library/Keychains/login.keychain-db
         security set-keychain-settings ~/Library/Keychains/login.keychain-db
 
+        # Verify identity is available
         security find-identity -v ~/Library/Keychains/login.keychain-db
 
     - name: Install provisioning profile
@@ -69,7 +73,7 @@ jobs:
           fastlane beta
         fi
 
-    # 🔥 Upload gym logs if Fastlane fails
+    # Upload gym logs if Fastlane fails
     - name: Upload gym logs
       if: failure() && steps.fastlane.outcome == 'failure'
       uses: actions/upload-artifact@v4
