@@ -71,3 +71,11 @@ jobs:
           echo "Running beta lane"
           fastlane beta
         fi
+
+    # 🔥 NEW: Upload gym logs when Fastlane fails
+    - name: Upload gym log
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: gym-log
+        path: ~/Library/Logs/gym
