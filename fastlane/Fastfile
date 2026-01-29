@@ -53,7 +53,10 @@ platform :ios do
     # Build for App Store
     build_app(
       scheme: "BudgetTrackerApp2",
-      export_method: "app-store"
+      export_method: "app-store",
+      xcodebuild_formatter: "",
+      verbose: true,
+      xcargs: "-showBuildTimingSummary"
     )
 
     # Upload to App Store Connect (not TestFlight)
