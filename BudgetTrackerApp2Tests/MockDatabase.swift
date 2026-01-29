@@ -1,11 +1,4 @@
-//
-//  MockDatabase.swift
-//  BudgetTrackerApp2
-//
-//  Created by JOHN VARADI on 1/14/26.
-//
-
-
+// MockDatabase.swift
 import Foundation
 @testable import BudgetTrackerApp2
 
@@ -53,17 +46,12 @@ final class MockDatabase: DatabaseProtocol {
     }
 
     func updateTransaction(_ updated: Transaction) {
-        // Ensure the budget entry exists
         var list = transactions[updated.budgetId, default: []]
-
         if let idx = list.firstIndex(where: { $0.id == updated.id }) {
             list[idx] = updated
         }
-
-        // Save the updated list back
         transactions[updated.budgetId] = list
     }
-
 
     // MARK: - Recurring
 

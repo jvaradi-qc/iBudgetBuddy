@@ -11,7 +11,7 @@ import SwiftUI
 struct Screenshot2: View {
     var body: some View {
         ScreenshotTemplate(caption: "Track expenses with ease") {
-            AddTransactionView { _,_,_,_ in }
+            AddTransactionView { _,_,_,_,_ in }
         }
     }
 }

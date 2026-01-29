@@ -7,26 +7,58 @@ struct Budget: Identifiable, Equatable {
     let name: String
 }
 
+// MARK: - Category
+
+struct Category: Identifiable, Equatable {
+    let id: UUID
+    var name: String
+    var type: CategoryType
+    var colorHex: String?
+    var iconName: String?
+    var isActive: Bool = true
+}
+
+
+
+enum CategoryType: String, Codable, CaseIterable {
+    case income
+    case expense
+}
+
 // MARK: - Core models
 
 struct Transaction: Identifiable {
     let id: UUID
     let budgetId: UUID
-    let date: Date
-    let description: String
-    let amount: Double   // positive = income, negative = expense
-    let isIncome: Bool
+
+    // Editable fields
+    var date: Date
+    var description: String
+    var amount: Double
+    var isIncome: Bool
+    var categoryId: UUID?
+
+    // Recurring linkage (runtime only)
+    var isRecurringInstance: Bool
+    var recurringRuleId: UUID?
 }
+
+
 
 struct RecurringTransaction: Identifiable {
     let id: UUID
     let budgetId: UUID
-    let description: String
-    let amount: Double   // positive number; sign handled by isIncome
-    let isIncome: Bool
-    let frequency: Frequency
+
+    // Editable fields
+    var description: String
+    var amount: Double
+    var isIncome: Bool
+    var frequency: Frequency
     var nextRunDate: Date
+    var categoryId: UUID?
+    var isActive: Bool
 }
+
 
 // MARK: - Frequency
 
@@ -66,3 +98,4 @@ extension Frequency {
         }
     }
 }
+
