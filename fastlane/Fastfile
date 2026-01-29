@@ -55,6 +55,8 @@ platform :ios do
       scheme: "BudgetTrackerApp2",
       export_method: "app-store",
       xcodebuild_formatter: "",
+      skip_codesigning: true,
+      skip_profile_detection: true,
       verbose: true,
       xcargs: "-showBuildTimingSummary"
     )
@@ -62,7 +64,8 @@ platform :ios do
     # Upload to App Store Connect (not TestFlight)
     upload_to_app_store(
       submit_for_review: false,
-      automatic_release: false
+      automatic_release: false,
+      ipa: "./BudgetTrackerApp2.ipa"
     )
 
     # Tag the release
