@@ -46,6 +46,6 @@ jobs:
         xcodebuild \
           -project BudgetTrackerApp2.xcodeproj \
           -scheme BudgetTrackerApp2UITests \
-	  -testPlan BudgetTrackerApp2UITests \
+          -testPlan BudgetTrackerApp2UITests \
           -destination 'platform=iOS Simulator,name=iPhone SE (3rd generation)' \
           clean test | xcpretty
