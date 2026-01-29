@@ -1,6 +1,12 @@
 // BudgetTrackerApp2UITests.swift
 import XCTest
 
+final class SanityUITests: XCTestCase {
+    func testSanityLaunch() {
+        XCTAssertTrue(true)
+    }
+}
+
 final class BudgetTrackerApp2UITests: XCTestCase {
 
     var app: XCUIApplication!
