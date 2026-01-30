@@ -1,0 +1,61 @@
+version: 1.2.7
+
+workflows:
+  ci:
+    name: "CI – Develop Branch"
+    triggers:
+      on:
+        push:
+          branches: [ "develop" ]
+
+    environment:
+      xcode: "latest"
+      macOS: "latest"
+
+    actions:
+      - build:
+          workspace: "iBudgetBuddy.xcworkspace"
+          scheme: "BudgetTrackerApp2"
+          destination: "any-simulator"
+          configuration: "Debug"
+
+      - test:
+          workspace: "iBudgetBuddy.xcworkspace"
+          scheme: "BudgetTrackerApp2_UnitTests"
+          destination: "any-simulator"
+          configuration: "Debug"
+          collect-coverage: true
+
+      - test:
+          workspace: "iBudgetBuddy.xcworkspace"
+          scheme: "BudgetTrackerApp2UITests"
+          destination: "any-simulator"
+          configuration: "Debug"
+
+  release:
+    name: "Release – Tag Triggered"
+    triggers:
+      on:
+        tag:
+          patterns: [ "v*" ]
+
+    environment:
+      xcode: "latest"
+      macOS: "latest"
+
+    actions:
+      - build:
+          workspace: "iBudgetBuddy.xcworkspace"
+          scheme: "BudgetTrackerApp2"
+          destination: "any-device"
+          configuration: "Release"
+
+      - archive:
+          workspace: "iBudgetBuddy.xcworkspace"
+          scheme: "BudgetTrackerApp2"
+          configuration: "Release"
+
+      - upload-to-app-store:
+          submit-for-review: false
+          skip-waiting-for-build-processing: false
+          release-type: "MANUAL"
